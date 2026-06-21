@@ -1,0 +1,80 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: authapp_db
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    networks:
+      - authapp_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: authapp_redis
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    command:
+      - sh
+      - -c
+      - 'redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}" --port 6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - authapp_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: authapp_api
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - authapp_network
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build: .
+    container_name: celery_worker
+    command: celery -A app.core.celery_utils:celery_app worker --loglevel=info --pool=solo
+    env_file:
+      - ./.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - authapp_network
+
+networks:
+  authapp_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

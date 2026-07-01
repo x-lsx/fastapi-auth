@@ -25,8 +25,7 @@ class Settings(BaseSettings):
 
     CELERY_BROKER_URL: str = Field(...)
     CELERY_RESULT_URL: str = Field(...)
-    
-    
+
     # ====================== JWT Security ======================
     ACCESS_SECRET_KEY: str = Field(..., description="Обязательный ключ")
     REFRESH_SECRET_KEY: str = Field(..., description="Обязательный ключ")
@@ -46,6 +45,17 @@ class Settings(BaseSettings):
     STATIC_DIR: Path = BASE_DIR / "static"
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
 
+    # ====================== Email ======================
+    EMAIL_HOST: str = Field(..., description="SMTP server host")
+    EMAIL_PORT: int = Field(..., description="SMTP server port")
+    EMAIL_USERNAME: str = Field(..., description="Email username")
+    EMAIL_PASSWORD: str = Field(..., description="Email password")
+
+    # ====================== Verification Token ======================
+    API_URL: str = Field(..., description="Base URL of the API")
+    VERIFICATION_TOKEN_EXPIRE_HOURS: int = Field(
+        default=1, description="Verification token expiration time in hours"
+    )
 
     model_config = SettingsConfigDict(
         env_file=(

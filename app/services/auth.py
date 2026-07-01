@@ -15,6 +15,7 @@ from ..schemas.token import TokenResponse
 from ..schemas.user import UserCreate
 from ..services.token import TokenService
 from ..tasks.test import login_debug_task
+from ..tasks.send_confirmation_email import send_confirmation_email
 
 
 def build_token_response(
@@ -53,6 +54,12 @@ class AuthService:
         refresh_token, jti = create_refresh_token(new_user.id)
 
         await self.token_service.save_refresh_token(new_user.id, jti)
+        
+        token = await self.token_service.generate_verification_token(new_user.id)
+        send_confirmation_email.delay(to_email=new_user.email,
+                                      verify_url=f"{settings.API_URL}/verify?token={token}",
+                                )
+        
         return build_token_response(access_token, refresh_token)
 
     async def authenticate_user(self, email: str, password: str) -> TokenResponse:
@@ -108,3 +115,20 @@ class AuthService:
                 detail="Invalid or expired refresh token",
             )
         await self.token_service.revoke_refresh_token(token_data.jti)
+        
+        
+    async def verify_user(self, verification_token: str):
+        user_id = await self.token_service.get_user_id_by_verification_token(verification_token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token",
+            )
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        user.is_verified = True
+        await self.user_repository.db.commit()
+        await self.token_service.revoke_verification_token(verification_token)

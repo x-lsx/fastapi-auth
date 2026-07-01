@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.postgres import get_db
@@ -36,3 +36,11 @@ async def logout(request: RefreshTokenRequest, db: AsyncSession = Depends(get_db
     auth_service = AuthService(db, redis)
     await auth_service.logout(request.refresh_token)
     return {"detail": "Logged out successfully"}
+
+@router.get("/verify")
+async def verify_email(token: str = Query(...),
+                       db: AsyncSession = Depends(get_db),
+                       redis=Depends(get_redis)):
+    auth_service = AuthService(db, redis)
+    await auth_service.verify_user(token)
+    return {"detail": "Email verified successfully"}

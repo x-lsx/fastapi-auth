@@ -36,12 +36,8 @@ class UserService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
-            )
-        
+            )        
         update_data = user_update.model_dump(exclude_unset=True)
-        if "password" in update_data:
-            update_data["hashed_password"] = hashed_password(update_data.pop("password"))
-        
         updated_user = await self.user_repository.update(user_id, update_data)
         await self.user_repository.db.commit()
         return UserResponse.model_validate(updated_user)

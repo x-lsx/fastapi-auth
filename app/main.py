@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_swagger import patch_fastapi
 
 from .db.lifespan import lifespan
 from .core.config import settings
@@ -10,9 +11,9 @@ from .routes import user
 app = FastAPI(
     app_name = settings.APP_NAME,
     lifespan = lifespan,
-    docs_url="/api/docs",
+    docs_url=None,
 )
-
+patch_fastapi(app, docs_url="/api/docs")
 cors_origins = [
     origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
 ]

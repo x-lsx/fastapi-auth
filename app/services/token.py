@@ -9,7 +9,8 @@ from ..core.config import settings
 class TokenService:
     def __init__(self, redis: Redis):
         self.redis: Redis = redis
-    # refresh token methods 
+    # refresh token methods
+
     async def save_refresh_token(self, user_id: int, jti: str):
         await self.redis.set(
             f"refresh_token:{jti}",
@@ -25,7 +26,16 @@ class TokenService:
                 f"refresh_token:{jti}"
             )
         )
+        
+    async def revoke_all_refresh_tokens(self, user_id: int):
+        keys = await self.redis.keys(f"refresh_token:*")
+        for key in keys:
+            token_user_id = await self.redis.get(key)
+            if token_user_id and int(token_user_id) == user_id:
+                await self.redis.delete(key)
+                
     # verification token methods
+
     async def generate_verification_token(self, user_id: int) -> str:
         token = secrets.token_urlsafe(32)
 
@@ -43,5 +53,24 @@ class TokenService:
         user_id = await self.redis.get(f"verification_token:{token}")
         if user_id is None:
             return None
+        return int(user_id)
 
+    # reset password token methods
+    
+    async def generate_password_reset_token(self, user_id: int) -> str:
+        token = secrets.token_urlsafe(32)
+        await self.redis.set(
+            f"password_reset_token:{token}",
+            user_id,
+            ex=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS * 60 * 60
+        )
+        return token
+
+    async def revoke_password_reset_token(self, token: str):
+        await self.redis.delete(f"password_reset_token:{token}")
+
+    async def get_user_id_by_password_reset_token(self, token: str) -> int:
+        user_id = await self.redis.get(f"password_reset_token:{token}")
+        if user_id is None:
+            return None
         return int(user_id)

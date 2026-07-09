@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.postgres import get_db
 from ..db.redis import get_redis
 from ..services.auth import AuthService
 from ..schemas.token import TokenResponse, RefreshTokenRequest
-from ..schemas.user import UserCreate, UserLogin
-
+from ..schemas.user import UserCreate, UserLogin, UserChangePassword
+from ..core.dependencies import get_current_user
 router = APIRouter(
     prefix="/auth",
     tags=["auth"]
@@ -37,6 +37,7 @@ async def logout(request: RefreshTokenRequest, db: AsyncSession = Depends(get_db
     await auth_service.logout(request.refresh_token)
     return {"detail": "Logged out successfully"}
 
+
 @router.get("/verify")
 async def verify_email(token: str = Query(...),
                        db: AsyncSession = Depends(get_db),
@@ -44,3 +45,16 @@ async def verify_email(token: str = Query(...),
     auth_service = AuthService(db, redis)
     await auth_service.verify_user(token)
     return {"detail": "Email verified successfully"}
+
+
+@router.patch("/change-password")
+async def change_password(
+    data: UserChangePassword = Body(...),
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis)
+):
+    auth_service = AuthService(db, redis)
+
+    await auth_service.change_password(user.id, data)
+    return {"detail": "Password changed successfully"}

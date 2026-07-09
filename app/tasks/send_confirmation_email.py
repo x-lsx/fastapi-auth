@@ -1,17 +1,11 @@
 from app.core.celery_utils import celery_app
 from app.core.config import settings
 
-from email.message import EmailMessage
-import aiosmtplib
-import asyncio
-
-
-from app.core.celery_utils import celery_app
-from app.core.config import settings
 
 from email.message import EmailMessage
 import aiosmtplib
 import asyncio
+
 
 
 async def send_email(to_email: str, subject: str, body: str):

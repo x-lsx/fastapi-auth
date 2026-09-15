@@ -5,7 +5,7 @@ from ..db.postgres import get_db
 from ..db.redis import get_redis
 from ..services.auth import AuthService
 from ..schemas.token import TokenResponse, RefreshTokenRequest
-from ..schemas.user import UserCreate, UserLogin, UserChangePassword
+from ..schemas.user import UserCreate, UserLogin, UserChangePassword, UserResetPasswordRequest, UserForgotPasswordRequest
 from ..core.dependencies import get_current_user
 router = APIRouter(
     prefix="/auth",
@@ -58,3 +58,24 @@ async def change_password(
 
     await auth_service.change_password(user.id, data)
     return {"detail": "Password changed successfully"}
+
+
+@router.post("/request-password-reset")
+async def request_password_reset(
+    data: UserForgotPasswordRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis)
+):
+    auth_service = AuthService(db, redis)
+    await auth_service.request_password_reset(data.email)
+    return {"detail": "Password reset email sent"}
+
+@router.post("/reset-password")
+async def reset_password(
+    data: UserResetPasswordRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis)
+):
+    auth_service = AuthService(db, redis)
+    await auth_service.confirm_reset_password(data.email, data.new_password)
+    return {"detail": "Password reset email sent"}

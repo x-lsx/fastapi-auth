@@ -8,6 +8,8 @@ import asyncio
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 async def send_email(to_email: str, subject: str, body: str):
     message = EmailMessage()
     message["From"] = settings.EMAIL_USERNAME
@@ -30,18 +32,16 @@ async def send_email(to_email: str, subject: str, body: str):
     retry_backoff=True,
     retry_kwargs={"max_retries": 5, "countdown": 60},
 )
-def send_confirmation_email(to_email: str, verify_url: str):
+def send_password_reset_email(to_email: str, reset_url: str):
     try:
         asyncio.run(
             send_email(
                 to_email=to_email,
-                subject="Подтвердите ваш email",
-                body=f"Пожалуйста, подтвердите email по ссылке: {verify_url}",
+                subject="Сброс пароля",
+                body=f"Пожалуйста, сбросьте ваш пароль по ссылке: {reset_url}",
             )
         )
-        logging.info(f"✅ Письмо отправлено на {to_email}")
+        logger.info(f"✅ Письмо отправлено на {to_email}")
     except Exception as e:
-        print(f"❌ Ошибка отправки на {to_email}: {e}")
-        logging.error(f"❌ Ошибка отправки на {to_email}: {e}")
+        logger.error(f"❌ Ошибка отправки на {to_email}: {e}")
         raise
-

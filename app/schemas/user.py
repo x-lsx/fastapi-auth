@@ -63,3 +63,12 @@ class UserResponse(BaseModel):
 class UserChangePassword(BaseModel):
     old_password: str = Field(..., description="Your old password", gt=4)
     new_password: str = Field(..., description="Your new password", gt=4)
+
+
+class UserForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., description="User's email address")
+
+
+class UserResetPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., description="User's email address")
+    new_password: str = Field(..., description="User's new password", min_length=4)

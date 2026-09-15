@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status, HTTPException
 import secrets
@@ -69,7 +71,7 @@ class TokenService:
     async def revoke_password_reset_token(self, token: str):
         await self.redis.delete(f"password_reset_token:{token}")
 
-    async def get_user_id_by_password_reset_token(self, token: str) -> int:
+    async def get_user_id_by_password_reset_token(self, token: str) -> Optional[int]:
         user_id = await self.redis.get(f"password_reset_token:{token}")
         if user_id is None:
             return None

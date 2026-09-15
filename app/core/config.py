@@ -53,8 +53,12 @@ class Settings(BaseSettings):
 
     # ====================== Verification Token ======================
     API_URL: str = Field(..., description="Base URL of the API")
+    FRONTEND_URL: str = Field(..., description="Base URL of the frontend")
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = Field(
         default=1, description="Verification token expiration time in hours"
+    )
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = Field(
+        default=1, description="Password reset token expiration time in hours"
     )
 
     model_config = SettingsConfigDict(

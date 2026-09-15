@@ -1,4 +1,5 @@
 import jwt
+import logging
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +10,7 @@ from ..core.jwt_utils import (
     decode_refresh_token,
 )
 
+
 from ..core.security import hashed_password, verify_password
 from ..db.redis import Redis
 from ..repositories.user import UserRepository
@@ -17,6 +19,7 @@ from ..schemas.user import UserCreate, UserChangePassword
 from ..services.token import TokenService
 from ..tasks.test import login_debug_task
 from ..tasks.send_confirmation_email import send_confirmation_email
+from ..tasks.send_reset_password_email import send_password_reset_email
 
 
 def build_token_response(
@@ -36,7 +39,8 @@ class AuthService:
     def __init__(self, db: AsyncSession, redis: Redis):
         self.user_repository = UserRepository(db)
         self.token_service = TokenService(redis)
-
+        self.logger = logging.getLogger(__name__)
+        
     async def register_user(self, user_create: UserCreate) -> TokenResponse:
         existing_user = await self.user_repository.get_by_email(user_create.email)
         if existing_user:
@@ -157,4 +161,50 @@ class AuthService:
         )
         await self.user_repository.db.commit()
 
+        await self.token_service.revoke_all_refresh_tokens(user_id)
+
+    async def request_password_reset(self, email: str):
+        user = await self.user_repository.get_by_email(email)
+
+        if user:
+            self.logger.info("User find")
+            token = await self.token_service.generate_password_reset_token(user.id)
+
+            send_password_reset_email.delay(
+                to_email=user.email,
+                reset_url=f"{
+                    settings.FRONTEND_URL}auth/reset-password?token={token}",
+            )
+            return
+        self.logger.info("user not found")
+        return
+
+    async def confirm_reset_password(self, token: str, new_password: str):
+        user_id = await self.token_service.get_user_id_by_password_reset_token(token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired password reset token",
+            )
+        
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        
+        hashed_new_password = hashed_password(new_password)
+        if verify_password(new_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from the old one"
+            )
+        
+        await self.user_repository.update(
+            user_id,
+            {"hashed_password": hashed_new_password}
+        )
+
+        await self.user_repository.db.commit()
+        await self.token_service.revoke_password_reset_token(token)
         await self.token_service.revoke_all_refresh_tokens(user_id)
